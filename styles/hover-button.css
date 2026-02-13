@@ -1,0 +1,258 @@
+/**
+ * Robusta Scheduler Helper - Hover Button Styles
+ */
+
+/* Satır hover durumu için relative positioning */
+table.users tr[ng-repeat*="scheduledProcess"] {
+  position: relative;
+}
+
+/* Hover button container - sağ tarafta, her zaman görünür */
+.robusta-hover-btn-container {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1000;
+  opacity: 0.3;
+  transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+  pointer-events: auto;
+}
+
+/* Satır veya button hover olduğunda daha belirgin */
+table.users tr[ng-repeat*="scheduledProcess"]:hover .robusta-hover-btn-container,
+.robusta-hover-btn-container:hover {
+  opacity: 1;
+}
+
+/* Dropdown menü açıkken her zaman tam görünür */
+.robusta-hover-btn-container.menu-open {
+  opacity: 1;
+}
+
+/* Hover button stili */
+.robusta-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 4px;
+  background-color: rgba(52, 152, 219, 0.9);
+  color: white;
+  cursor: pointer;
+  font-size: 16px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease-in-out;
+}
+
+.robusta-filter-btn:hover {
+  background-color: rgba(41, 128, 185, 1);
+  transform: scale(1.1);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.robusta-filter-btn:active {
+  transform: scale(0.95);
+}
+
+/* Filter ikonu (SVG) */
+.robusta-filter-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+/* Tooltip */
+.robusta-filter-btn::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  background-color: #333;
+  color: white;
+  font-size: 12px;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s, visibility 0.2s;
+  margin-bottom: 5px;
+  pointer-events: none;
+}
+
+.robusta-filter-btn::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #333;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s, visibility 0.2s;
+  margin-bottom: -5px;
+}
+
+.robusta-filter-btn:hover::after,
+.robusta-filter-btn:hover::before {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Dropdown Menü */
+.robusta-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 5px;
+  min-width: max-content;
+  background-color: #ffffff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1001;
+  overflow: hidden;
+  animation: dropdownFadeIn 0.2s ease-out;
+  white-space: nowrap;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.robusta-dropdown-menu::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: 10px;
+  border: 6px solid transparent;
+  border-bottom-color: #fff;
+  border-top: none;
+}
+
+.robusta-dropdown-menu::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  right: 9px;
+  border: 7px solid transparent;
+  border-bottom-color: #ddd;
+  border-top: none;
+  z-index: -1;
+}
+
+/* Dropdown menü öğeleri */
+.robusta-dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  color: #333;
+  font-size: 13px;
+  font-family: Arial, sans-serif;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.robusta-dropdown-item:hover {
+  background-color: #f0f7ff;
+}
+
+.robusta-dropdown-item:active {
+  background-color: #e0efff;
+}
+
+.robusta-dropdown-item svg {
+  width: 16px;
+  height: 16px;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+/* Disabled/Mock item */
+.robusta-dropdown-item.disabled {
+  color: #999;
+  cursor: not-allowed;
+}
+
+.robusta-dropdown-item.disabled:hover {
+  background-color: transparent;
+}
+
+.robusta-dropdown-item.disabled svg {
+  opacity: 0.5;
+}
+
+/* Menü ayırıcı */
+.robusta-dropdown-divider {
+  height: 1px;
+  background-color: #eee;
+  margin: 5px 0;
+}
+
+/* Başarı bildirimi */
+.robusta-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  background-color: #27ae60;
+  color: white;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 10000;
+  font-size: 14px;
+  font-family: Arial, sans-serif;
+  animation: slideIn 0.3s ease-out, fadeOut 0.3s ease-in 2.7s forwards;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Processes sayfasında filter alanları highlight */
+.robusta-highlight-input {
+  animation: highlightPulse 1s ease-in-out 2;
+  box-shadow: 0 0 10px rgba(52, 152, 219, 0.8) !important;
+}
+
+@keyframes highlightPulse {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(52, 152, 219, 1);
+  }
+}
