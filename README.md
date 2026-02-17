@@ -5,10 +5,12 @@ Bu Chrome extension, Robusta Scheduler web uygulamasının kullanımını kolayl
 ## Özellikler
 
 ### v1.0.0 - Tarih Filtre Aktarımı
-- **Scheduled Processes** sayfasındaki tablo satırlarına hover button eklenir
-- Button'a tıklandığında satırın **Start Date** ve **End Date** bilgileri alınır
-- **Processes** sayfası yeni sekmede açılır
-- Tarih filtreleri otomatik olarak doldurulur
+- **Scheduled Processes** ve **Process Instances** tablolarına hover button eklenir
+- Button'a tıklandığında dropdown menü açılır:
+  - **"Processes sayfasında aç"**: Start Date ve End Date bilgilerini Processes sayfasına aktarır
+  - **"Screenshots sayfasında aç"**: DateRangePicker'ı görünür şekilde doldurur (kullanıcı seçimleri izler)
+- Processes sayfasında tarih filtreleri otomatik doldurulur ve arama başlatılır
+- Screenshots sayfasında DateRangePicker görünür şekilde açılır ve tarihler seçilir
 
 ## Kurulum
 

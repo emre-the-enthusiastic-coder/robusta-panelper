@@ -5,7 +5,8 @@
   "description": "Scheduled processes tarih filtreleme yardımcısı - Satır tarihlerini otomatik olarak processes filtresine aktarır",
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "alarms"
   ],
   "host_permissions": [
     "*://*/scheduler/workflow/*",
@@ -24,10 +25,5 @@
   ],
   "background": {
     "service_worker": "background.js"
-  },
-  "icons": {
-    "16": "icons/icon-16.png",
-    "48": "icons/icon-48.png",
-    "128": "icons/icon-128.png"
   }
 }

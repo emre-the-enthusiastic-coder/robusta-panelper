@@ -36,6 +36,18 @@
       INSTANCES: 12
     },
     
+    // Instance tablosu sütun indeksleri
+    INSTANCE_COLUMN_INDEX: {
+      STATUS: 0,
+      WAITING_REASON: 1,
+      USERNAME: 2,
+      START_DATE: 3,
+      END_DATE: 4,
+      WORKER_NAME: 5,
+      SHOW_LOGS: 6,
+      SHOW_DIAGRAM: 7
+    },
+    
     // Storage key
     STORAGE_KEY: 'robustaFilterDates',
     
@@ -48,13 +60,15 @@
     SELECTORS: {
       SCHEDULED_TABLE: 'table.users',
       DATA_ROWS: 'tr[ng-repeat*="scheduledProcess"]',
+      INSTANCE_DATA_ROWS: 'tr[ng-repeat*="processInstance"]',
       FILTER_HEADER: '#process-collapse-header',
       START_DATE_INPUT: 'input[ng-model="model.filter.param.startDateLowerBound"]',
       END_DATE_INPUT: 'input[ng-model="model.filter.param.endDateUpperBound"]',
       // Screenshots selectors
       DATERANGE_INPUT: 'input[type="text"][name="datetimes"]',
       DATERANGE_APPLY_BTN: 'button.applyBtn',
-      SCREENSHOTS_FILTER_BTN: 'button[ng-click="showScreenshots()"]'
+      SCREENSHOTS_FILTER_BTN: 'button[ng-click="showScreenshots()"]',
+      SCREENSHOTS_WORKER_SELECT: 'select[ng-model="screenshottingModel"]'
     }
   };
 
@@ -131,6 +145,14 @@
       
       check();
     });
+  }
+
+  /**
+   * Chrome API'nin mevcut olup olmadığını kontrol eder
+   * @returns {boolean}
+   */
+  function isChromeApiAvailable() {
+    return typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
   }
 
   /**
@@ -235,8 +257,9 @@
         if (mutation.addedNodes.length > 0) {
           const hasTableChanges = Array.from(mutation.addedNodes).some(node => {
             if (node.nodeType !== Node.ELEMENT_NODE) return false;
-            return node.matches?.(CONFIG.SELECTORS.DATA_ROWS) || 
-                   node.querySelector?.(CONFIG.SELECTORS.DATA_ROWS);
+            // Sadece instance satırlarını izle
+            return node.matches?.(CONFIG.SELECTORS.INSTANCE_DATA_ROWS) || 
+                   node.querySelector?.(CONFIG.SELECTORS.INSTANCE_DATA_ROWS);
           });
           
           if (hasTableChanges) {
@@ -256,11 +279,13 @@
 
   /**
    * Tablo satırlarına hover butonlarını ekler
+   * NOT: Sadece Instance satırlarına buton eklenir
    */
   function attachHoverButtons() {
-    const dataRows = document.querySelectorAll(CONFIG.SELECTORS.DATA_ROWS);
+    // Sadece Instance satırları
+    const instanceRows = document.querySelectorAll(CONFIG.SELECTORS.INSTANCE_DATA_ROWS);
     
-    dataRows.forEach(row => {
+    instanceRows.forEach(row => {
       // Zaten eklenmiş mi kontrol et
       if (row.querySelector('.robusta-hover-btn-container')) {
         return;
@@ -293,7 +318,7 @@
       }
     });
     
-    console.log(`Robusta Helper: ${dataRows.length} satıra hover butonu eklendi`);
+    console.log(`Robusta Helper: ${instanceRows.length} instance satırına hover butonu eklendi`);
   }
 
   /**
@@ -319,7 +344,7 @@
     const menu = document.createElement('div');
     menu.className = 'robusta-dropdown-menu';
     
-    // Menü öğeleri
+    // Menü öğeleri - Processes ve Screenshots seçenekleri
     const menuItems = [
       {
         label: "'Processes' sayfasında aç",
@@ -331,7 +356,7 @@
         label: "'Screenshots' sayfasında aç",
         icon: getScreenshotsIconSVG(),
         action: () => handleOpenInScreenshots(row),
-        disabled: false // Artık aktif
+        disabled: false
       }
     ];
     
@@ -367,20 +392,27 @@
    */
   async function handleOpenInProcesses(row) {
     try {
-      // Tarihleri çıkar
-      const dates = extractDatesFromRow(row);
+      // Chrome API kontrolü
+      if (!isChromeApiAvailable()) {
+        showNotification('Extension yeniden yükleniyor, lütfen tekrar deneyin', 'error');
+        console.error('Robusta Helper: Chrome API mevcut değil');
+        return;
+      }
       
-      if (!dates.startDate || !dates.endDate) {
+      // Tarihleri çıkar
+      const data = extractDataFromRow(row);
+      
+      if (!data.startDate || !data.endDate) {
         showNotification('Tarih bilgisi alınamadı!', 'error');
         return;
       }
       
-      console.log('Robusta Helper: Tarihler çıkarıldı', dates);
+      console.log('Robusta Helper: Tarihler çıkarıldı', data);
       
       // Tarihleri formatla
       const formattedDates = {
-        startDateLowerBound: removeSeconds(dates.startDate),
-        endDateUpperBound: roundUpMinute(dates.endDate),
+        startDateLowerBound: removeSeconds(data.startDate),
+        endDateUpperBound: roundUpMinute(data.endDate),
         timestamp: Date.now()
       };
       
@@ -411,28 +443,36 @@
    */
   async function handleOpenInScreenshots(row) {
     try {
-      // Tarihleri çıkar
-      const dates = extractDatesFromRow(row);
+      // Chrome API kontrolü
+      if (!isChromeApiAvailable()) {
+        showNotification('Extension yeniden yükleniyor, lütfen tekrar deneyin', 'error');
+        console.error('Robusta Helper: Chrome API mevcut değil');
+        return;
+      }
       
-      if (!dates.startDate || !dates.endDate) {
+      // Tarihleri ve robot bilgisini çıkar
+      const data = extractDataFromRow(row);
+      
+      if (!data.startDate || !data.endDate) {
         showNotification('Tarih bilgisi alınamadı!', 'error');
         return;
       }
       
-      console.log('Robusta Helper: Screenshots için tarihler çıkarıldı', dates);
+      console.log('Robusta Helper: Screenshots için tarihler ve robot çıkarıldı', data);
       
-      // Tarihleri formatla (Screenshots için aynı format)
-      const formattedDates = {
-        startDateLowerBound: removeSeconds(dates.startDate),
-        endDateUpperBound: roundUpMinute(dates.endDate),
+      // Tarihleri ve robot bilgisini formatla
+      const formattedData = {
+        startDateLowerBound: removeSeconds(data.startDate),
+        endDateUpperBound: roundUpMinute(data.endDate),
+        workerName: data.workerName || null,
         timestamp: Date.now()
       };
       
-      console.log('Robusta Helper: Screenshots için formatlanmış tarihler', formattedDates);
+      console.log('Robusta Helper: Screenshots için formatlanmış veriler', formattedData);
       
       // Storage'a kaydet
       await chrome.storage.local.set({
-        [CONFIG.STORAGE_KEY]: formattedDates
+        [CONFIG.STORAGE_KEY]: formattedData
       });
       
       // Screenshots sayfasını yeni sekmede aç
@@ -450,22 +490,39 @@
   }
 
   /**
-   * Satırdan tarih bilgilerini çıkarır
+   * Satırdan tarih ve robot bilgilerini çıkarır
    * @param {HTMLElement} row - Tablo satırı
-   * @returns {Object} - { startDate, endDate }
+   * @returns {Object} - { startDate, endDate, workerName }
    */
-  function extractDatesFromRow(row) {
+  function extractDataFromRow(row) {
     const cells = row.querySelectorAll('td');
     
-    if (cells.length <= CONFIG.COLUMN_INDEX.END_DATE) {
-      console.error('Robusta Helper: Yetersiz sütun sayısı');
-      return { startDate: null, endDate: null };
+    // Satır tipini belirle (scheduled process mi, instance mı?)
+    const isInstanceRow = row.getAttribute('ng-repeat')?.includes('processInstance');
+    
+    let startDate, endDate, workerName;
+    
+    if (isInstanceRow) {
+      // Instance tablosu
+      if (cells.length <= CONFIG.INSTANCE_COLUMN_INDEX.END_DATE) {
+        console.error('Robusta Helper: Instance tablosu - Yetersiz sütun sayısı');
+        return { startDate: null, endDate: null, workerName: null };
+      }
+      startDate = cells[CONFIG.INSTANCE_COLUMN_INDEX.START_DATE]?.textContent?.trim();
+      endDate = cells[CONFIG.INSTANCE_COLUMN_INDEX.END_DATE]?.textContent?.trim();
+      workerName = cells[CONFIG.INSTANCE_COLUMN_INDEX.WORKER_NAME]?.textContent?.trim();
+    } else {
+      // Scheduled Processes tablosu
+      if (cells.length <= CONFIG.COLUMN_INDEX.END_DATE) {
+        console.error('Robusta Helper: Yetersiz sütun sayısı');
+        return { startDate: null, endDate: null, workerName: null };
+      }
+      startDate = cells[CONFIG.COLUMN_INDEX.START_DATE]?.textContent?.trim();
+      endDate = cells[CONFIG.COLUMN_INDEX.END_DATE]?.textContent?.trim();
+      workerName = null; // Scheduled Processes'te worker bilgisi yok
     }
     
-    const startDate = cells[CONFIG.COLUMN_INDEX.START_DATE]?.textContent?.trim();
-    const endDate = cells[CONFIG.COLUMN_INDEX.END_DATE]?.textContent?.trim();
-    
-    return { startDate, endDate };
+    return { startDate, endDate, workerName };
   }
 
   // ============================================
@@ -479,6 +536,12 @@
     console.log('Robusta Helper: Processes sayfası tespit edildi');
     
     try {
+      // Chrome API kontrolü
+      if (!isChromeApiAvailable()) {
+        console.error('Robusta Helper: Chrome API mevcut değil');
+        return;
+      }
+      
       // Storage'dan tarihleri al
       const data = await chrome.storage.local.get(CONFIG.STORAGE_KEY);
       
@@ -757,6 +820,12 @@
     console.log('Robusta Helper: Screenshots sayfası tespit edildi');
     
     try {
+      // Chrome API kontrolü
+      if (!isChromeApiAvailable()) {
+        console.error('Robusta Helper: Chrome API mevcut değil');
+        return;
+      }
+      
       // Storage'dan tarihleri al
       const data = await chrome.storage.local.get(CONFIG.STORAGE_KEY);
       
@@ -779,6 +848,14 @@
       // DateRange picker'ı doldur
       await fillDateRangePicker(filterData.startDateLowerBound, filterData.endDateUpperBound);
       
+      // Robot seçimi yap (eğer workerName varsa)
+      if (filterData.workerName) {
+        await selectWorkerInScreenshots(filterData.workerName);
+      }
+      
+      // Filter butonuna tıkla
+      await clickScreenshotsFilterButton();
+      
       // Storage'ı temizle
       await chrome.storage.local.remove(CONFIG.STORAGE_KEY);
       
@@ -791,7 +868,7 @@
   }
 
   /**
-   * DateRangePicker'a tarih aralığını set eder
+   * DateRangePicker'a tarih aralığını set eder - GÖRÜNÜR ŞEKİLDE
    * @param {string} startDate - Başlangıç tarihi (YYYY-MM-DD HH:mm)
    * @param {string} endDate - Bitiş tarihi (YYYY-MM-DD HH:mm)
    */
@@ -809,48 +886,165 @@
         throw new Error('DateRange input elementi bulunamadı');
       }
       
-      console.log('Robusta Helper: DateRange picker bulundu, tarihler set ediliyor...');
+      console.log('Robusta Helper: DateRange picker bulundu, görünür şekilde tarihler seçiliyor...');
+      showNotification('DateRangePicker açılıyor...', 'info');
       
-      // Yöntem 1: jQuery DateRangePicker API kullanımı (eğer varsa)
-      if (window.$ && typeof window.$.fn.daterangepicker !== 'undefined') {
-        console.log('Robusta Helper: jQuery DateRangePicker API kullanılıyor');
+      // DateRangePicker'ı aç (input'a tıkla)
+      dateInput.click();
+      dateInput.focus();
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // DateRangePicker'ın açıldığını kontrol et
+      await waitFor(() => {
+        const picker = document.querySelector('.daterangepicker.show-calendar');
+        return picker && isElementVisible(picker);
+      }, CONFIG.ELEMENT_WAIT_TIMEOUT);
+      
+      console.log('Robusta Helper: DateRangePicker açıldı, tarihler seçiliyor...');
+      showNotification('Tarihler seçiliyor...', 'info');
+      
+      // Tarihleri parse et
+      const startDateObj = parseDateString(startDate);
+      const endDateObj = parseDateString(endDate);
+      
+      // Sol takvimde başlangıç tarihini seç
+      await selectDateInCalendar('left', startDateObj);
+      
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Bitiş tarihi aynı ay/yıl ise sol takvimde seç
+      const isSameMonthYear =
+        startDateObj.getFullYear() === endDateObj.getFullYear() &&
+        startDateObj.getMonth() === endDateObj.getMonth();
+      
+      const endSide = isSameMonthYear ? 'left' : 'right';
+      
+      // Bitiş tarihini uygun takvimde seç
+      await selectDateInCalendar(endSide, endDateObj);
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Apply butonuna tıkla
+      const applyBtn = document.querySelector(CONFIG.SELECTORS.DATERANGE_APPLY_BTN);
+      if (applyBtn && isElementVisible(applyBtn)) {
+        console.log('Robusta Helper: Apply butonuna tıklanıyor...');
+        showNotification('Tarihler uygulanıyor...', 'info');
+        applyBtn.click();
         
-        const start = parseDateString(startDate);
-        const end = parseDateString(endDate);
-        
-        // DateRangePicker API ile set et
-        window.$(dateInput).data('daterangepicker')?.setStartDate(start);
-        window.$(dateInput).data('daterangepicker')?.setEndDate(end);
-        
-        // Apply event'ini tetikle
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        const applyBtn = document.querySelector(CONFIG.SELECTORS.DATERANGE_APPLY_BTN);
-        if (applyBtn && isElementVisible(applyBtn)) {
-          applyBtn.click();
-          console.log('Robusta Helper: DateRangePicker Apply tıklandı');
-        }
-      } 
-      // Yöntem 2: AngularJS Scope üzerinden direkt değişken set etme
-      else {
-        console.log('Robusta Helper: AngularJS scope üzerinden tarihler set ediliyor');
-        
-        await setScreenshotDatesViaScope(startDate, endDate);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } else {
+        throw new Error('Apply butonu bulunamadı');
       }
-      
-      // Filter butonuna tıkla
-      await clickScreenshotsFilterButton();
       
     } catch (error) {
       console.error('Robusta Helper: DateRangePicker doldurma hatası', error);
-      
-      // Fallback: Console'dan manuel müdahale için yardımcı bilgi göster
-      console.log('%c=== ROBUSTA HELPER DEBUG ===', 'color: #e74c3c; font-size: 14px; font-weight: bold;');
-      console.log('%cTarih set etme başarısız oldu. Manuel test için:', 'color: #3498db;');
-      console.log('%cwindow.robustaSetScreenshotDates("' + startDate + '", "' + endDate + '")', 'background: #2c3e50; color: #ecf0f1; padding: 5px;');
-      
+      showNotification('Tarih seçimi hatası: ' + error.message, 'error');
       throw error;
     }
+  }
+  
+  /**
+   * DateRangePicker'da belirli bir takvimde tarih seçer (görünür şekilde)
+   * @param {string} side - 'left' veya 'right'
+   * @param {Date} dateObj - Seçilecek tarih objesi
+   */
+  async function selectDateInCalendar(side, dateObj) {
+    const calendar = document.querySelector(`.drp-calendar.${side}`);
+    
+    if (!calendar) {
+      throw new Error(`${side} takvim bulunamadı`);
+    }
+    
+    const year = dateObj.getFullYear();
+    const month = dateObj.getMonth(); // 0-11
+    const day = dateObj.getDate();
+    const hour = dateObj.getHours();
+    const minute = dateObj.getMinutes();
+    const second = dateObj.getSeconds();
+    
+    console.log(`Robusta Helper: ${side} takvimde ${year}-${month+1}-${day} ${hour}:${minute}:${second} seçiliyor...`);
+    
+    // 1. Yıl seçimi
+    const yearSelect = calendar.querySelector('select.yearselect');
+    if (yearSelect) {
+      yearSelect.value = year.toString();
+      yearSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    
+    // 2. Ay seçimi
+    const monthSelect = calendar.querySelector('select.monthselect');
+    if (monthSelect) {
+      monthSelect.value = month.toString();
+      monthSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+    
+    // 3. Gün seçimi - doğru günü bul ve tıkla
+    await waitFor(() => findDayCell(calendar, day), 2000).catch(() => {});
+    const dayCell = findDayCell(calendar, day);
+    if (dayCell) {
+      dayCell.click();
+      await new Promise(resolve => setTimeout(resolve, 200));
+      console.log(`Robusta Helper: ${day}. gün tıklandı`);
+    } else {
+      console.warn(`Robusta Helper: ${day}. gün bulunamadı`);
+    }
+    
+    // 4. Saat seçimi
+    const hourSelect = calendar.querySelector('select.hourselect');
+    if (hourSelect) {
+      hourSelect.value = hour.toString();
+      hourSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    // 5. Dakika seçimi
+    const minuteSelect = calendar.querySelector('select.minuteselect');
+    if (minuteSelect) {
+      minuteSelect.value = minute.toString();
+      minuteSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    // 6. Saniye seçimi
+    const secondSelect = calendar.querySelector('select.secondselect');
+    if (secondSelect) {
+      secondSelect.value = second.toString();
+      secondSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    console.log(`Robusta Helper: ${side} takvimde seçim tamamlandı`);
+  }
+  
+  /**
+   * Takvimde belirli bir günü içeren hücreyi bulur
+   * @param {HTMLElement} calendar - Takvim elementi
+   * @param {number} day - Gün (1-31)
+   * @returns {HTMLElement|null} - Gün hücresi
+   */
+  function findDayCell(calendar, day) {
+    const dayCells = calendar.querySelectorAll('td.available');
+    
+    for (const cell of dayCells) {
+      const text = cell.textContent.trim();
+      // "off" classı olmayanları tercih et (mevcut ayın günleri)
+      if (text === day.toString() && !cell.classList.contains('off')) {
+        return cell;
+      }
+    }
+    
+    // Bulunamazsa off olanları da kontrol et
+    for (const cell of dayCells) {
+      const text = cell.textContent.trim();
+      if (text === day.toString()) {
+        return cell;
+      }
+    }
+    
+    return null;
   }
 
   /**
@@ -859,8 +1053,11 @@
    * @returns {Date}
    */
   function parseDateString(dateStr) {
-    const normalizedDateStr = dateStr.replace(' ', 'T');
-    return new Date(normalizedDateStr);
+    if (!dateStr) return new Date(NaN);
+    const [datePart, timePart = '00:00:00'] = dateStr.trim().split(' ');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hour = 0, minute = 0, second = 0] = timePart.split(':').map(Number);
+    return new Date(year, (month || 1) - 1, day || 1, hour, minute, second, 0);
   }
 
   /**
@@ -882,74 +1079,68 @@
   }
 
   /**
-   * AngularJS scope üzerinden screenshot tarihlerini set eder
-   * @param {string} startDate - Başlangıç tarihi
-   * @param {string} endDate - Bitiş tarihi
+   * Screenshots sayfasında robot (worker) seçer
+   * @param {string} workerName - Seçilecek robot adı
    */
-  async function setScreenshotDatesViaScope(startDate, endDate) {
-    // Input elementini bul
-    const dateInput = document.querySelector(CONFIG.SELECTORS.DATERANGE_INPUT);
-    
-    if (!dateInput) {
-      throw new Error('DateRange input bulunamadı');
-    }
-    
-    // AngularJS scope'u bul
+  async function selectWorkerInScreenshots(workerName) {
     try {
-      const scope = window.angular?.element(dateInput)?.scope();
+      console.log(`Robusta Helper: Robot seçiliyor: ${workerName}`);
+      showNotification(`Robot seçiliyor: ${workerName}`, 'info');
       
-      if (scope) {
-        const startDateObj = parseDateString(startDate);
-        const endDateObj = parseDateString(endDate);
-        
-        // Screenshots backend'inin beklediği format: YYYYMMDDHHmmssSSS
-        const startDateFormatted = formatDateForScreenshots(startDateObj);
-        const endDateFormatted = formatDateForScreenshots(endDateObj);
-        
-        scope.$apply(() => {
-          scope.screenshottingEnabledListStartDate = startDateFormatted;
-          scope.screenshottingEnabledListEndDate = endDateFormatted;
-          scope.enableShowScreenshottingButton = true; // Filter butonunu aktif et
-          
-          // Controller'ın checkScreenshottingFilter fonksiyonunu tetikle (eğer varsa)
-          if (typeof scope.checkScreenshottingFilter === 'function') {
-            scope.checkScreenshottingFilter(startDateFormatted, endDateFormatted);
-          }
-        });
-        
-        console.log('Robusta Helper: AngularJS scope değişkenleri set edildi', {
-          start: startDateFormatted,
-          end: endDateFormatted,
-          buttonEnabled: true
-        });
-        
-        // Küçük bir gecikme
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        return true;
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      const workerSelect = document.querySelector(CONFIG.SELECTORS.SCREENSHOTS_WORKER_SELECT);
+      
+      if (!workerSelect) {
+        console.warn('Robusta Helper: Robot select elementi bulunamadı');
+        return;
       }
-    } catch (e) {
-      console.error('Robusta Helper: AngularJS scope erişim hatası', e);
+      
+      // Option'ları tara ve eşleşeni bul
+      const options = workerSelect.querySelectorAll('option');
+      let foundIndex = -1;
+      
+      for (let i = 0; i < options.length; i++) {
+        const optionText = options[i].textContent.trim();
+        if (optionText === workerName) {
+          foundIndex = i;
+          break;
+        }
+      }
+      
+      if (foundIndex >= 0) {
+        // Seçimi yap
+        workerSelect.selectedIndex = foundIndex;
+        workerSelect.value = options[foundIndex].value;
+        
+        // Events tetikle
+        workerSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        workerSelect.dispatchEvent(new Event('input', { bubbles: true }));
+        
+        // AngularJS scope güncelle
+        try {
+          const scope = window.angular?.element(workerSelect)?.scope();
+          if (scope) {
+            scope.$apply(() => {
+              scope.screenshottingModel = scope.enabledWorkers[foundIndex - 1]; // İlk option boş olduğu için -1
+            });
+          }
+        } catch (e) {
+          console.log('Robusta Helper: AngularJS scope güncelleme alternatif yol denendi');
+        }
+        
+        console.log(`Robusta Helper: Robot seçildi: ${workerName}`);
+        showNotification(`Robot seçildi: ${workerName}`, 'success');
+      } else {
+        console.warn(`Robusta Helper: Robot bulunamadı: ${workerName}`);
+        showNotification(`Robot bulunamadı: ${workerName}`, 'error');
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+    } catch (error) {
+      console.error('Robusta Helper: Robot seçimi hatası', error);
     }
-    
-    // Fallback: Input elementini manuel tıklayıp, daterangepicker'ı açmayı dene
-    console.log('Robusta Helper: Input elementi tıklanıyor...');
-    dateInput.click();
-    dateInput.focus();
-    
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // DateRangePicker açıldı mı kontrol et
-    const daterangepicker = document.querySelector('.daterangepicker.show-calendar');
-    if (daterangepicker) {
-      console.log('Robusta Helper: DateRangePicker açıldı ama otomatik set edilemedi');
-      console.log('%cManuel olarak tarihleri seçmeniz gerekiyor:', 'color: #f39c12;');
-      console.log('Start Date:', startDate);
-      console.log('End Date:', endDate);
-      throw new Error('DateRangePicker otomatik set edilemedi, manuel seçim gerekli');
-    }
-    
-    return false;
   }
 
   /**
@@ -987,13 +1178,12 @@
 
   /**
    * Global helper fonksiyon - Console'dan test için
-   * Kullanım: window.robustaSetScreenshotDates("2026-01-28 08:02", "2026-01-28 08:16")
+   * Kullanım: window.robustaSetScreenshotDates("2026-02-16 10:00", "2026-02-16 10:05")
    */
   window.robustaSetScreenshotDates = async function(startDate, endDate) {
-    console.log('Robusta Helper: Manuel tarih set etme başlatıldı');
+    console.log('Robusta Helper: Manuel tarih set etme başlatıldı (görünür mod)');
     try {
-      await setScreenshotDatesViaScope(startDate, endDate);
-      await clickScreenshotsFilterButton();
+      await fillDateRangePicker(startDate, endDate);
       console.log('%cBaşarılı!', 'color: #27ae60; font-size: 16px; font-weight: bold;');
     } catch (error) {
       console.error('Hata:', error);

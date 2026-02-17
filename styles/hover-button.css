@@ -3,7 +3,8 @@
  */
 
 /* Satır hover durumu için relative positioning */
-table.users tr[ng-repeat*="scheduledProcess"] {
+table.users tr[ng-repeat*="scheduledProcess"],
+table.users tr[ng-repeat*="processInstance"] {
   position: relative;
 }
 
@@ -13,7 +14,7 @@ table.users tr[ng-repeat*="scheduledProcess"] {
   right: 5px;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 1000;
+  z-index: 99999 !important;
   opacity: 0.3;
   transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
   pointer-events: auto;
@@ -21,6 +22,7 @@ table.users tr[ng-repeat*="scheduledProcess"] {
 
 /* Satır veya button hover olduğunda daha belirgin */
 table.users tr[ng-repeat*="scheduledProcess"]:hover .robusta-hover-btn-container,
+table.users tr[ng-repeat*="processInstance"]:hover .robusta-hover-btn-container,
 .robusta-hover-btn-container:hover {
   opacity: 1;
 }
@@ -106,7 +108,7 @@ table.users tr[ng-repeat*="scheduledProcess"]:hover .robusta-hover-btn-container
 
 /* Dropdown Menü */
 .robusta-dropdown-menu {
-  position: absolute;
+  position: absolute !important;
   top: 100%;
   right: 0;
   margin-top: 5px;
@@ -115,7 +117,7 @@ table.users tr[ng-repeat*="scheduledProcess"]:hover .robusta-hover-btn-container
   border: 1px solid #ddd;
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1001;
+  z-index: 2147483647 !important;
   overflow: hidden;
   animation: dropdownFadeIn 0.2s ease-out;
   white-space: nowrap;
@@ -216,7 +218,7 @@ table.users tr[ng-repeat*="scheduledProcess"]:hover .robusta-hover-btn-container
   color: white;
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  z-index: 10000;
+  z-index: 9999999 !important;
   font-size: 14px;
   font-family: Arial, sans-serif;
   animation: slideIn 0.3s ease-out, fadeOut 0.3s ease-in 2.7s forwards;
