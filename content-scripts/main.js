@@ -908,20 +908,32 @@
       const startDateObj = parseDateString(startDate);
       const endDateObj = parseDateString(endDate);
       
-      // Sol takvimde başlangıç tarihini seç
-      await selectDateInCalendar('left', startDateObj);
-      
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Bitiş tarihi aynı ay/yıl ise sol takvimde seç
-      const isSameMonthYear =
+      // Aynı gün mü kontrol et
+      const isSameDay =
         startDateObj.getFullYear() === endDateObj.getFullYear() &&
-        startDateObj.getMonth() === endDateObj.getMonth();
-      
-      const endSide = isSameMonthYear ? 'left' : 'right';
-      
-      // Bitiş tarihini uygun takvimde seç
-      await selectDateInCalendar(endSide, endDateObj);
+        startDateObj.getMonth() === endDateObj.getMonth() &&
+        startDateObj.getDate() === endDateObj.getDate();
+
+      if (isSameDay) {
+        // Aynı gün: Gün zaten gösteriliyorsa doğrudan gün seçimine git,
+        // takvim navigasyonu + tek gün tıklaması, ardından her iki saat ayrı ayrı set edilir
+        await selectDateInCalendarSameDay('left', startDateObj, endDateObj);
+      } else {
+        // Farklı günler: önce başlangıç gününü seç, sonra bitiş gününü seç
+        await selectDateInCalendar('left', startDateObj);
+
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        // Bitiş tarihi aynı ay/yıl ise sol takvimde seç
+        const isSameMonthYear =
+          startDateObj.getFullYear() === endDateObj.getFullYear() &&
+          startDateObj.getMonth() === endDateObj.getMonth();
+
+        const endSide = isSameMonthYear ? 'left' : 'right';
+
+        // Bitiş tarihini uygun takvimde seç
+        await selectDateInCalendar(endSide, endDateObj);
+      }
       
       await new Promise(resolve => setTimeout(resolve, 500));
       
@@ -1019,6 +1031,147 @@
     console.log(`Robusta Helper: ${side} takvimde seçim tamamlandı`);
   }
   
+  /**
+   * Aynı gün seçimi için özel fonksiyon:
+   * Takvim navigasyonu yapılır, gün iki kez tıklanır (start + end için),
+   * ardından her iki saat seçici ayrı ayrı doldurulur.
+   * @param {string} side - Takvim yönü ('left')
+   * @param {Date} startDateObj - Başlangıç tarihi
+   * @param {Date} endDateObj - Bitiş tarihi
+   */
+  async function selectDateInCalendarSameDay(side, startDateObj, endDateObj) {
+    const calendar = document.querySelector(`.drp-calendar.${side}`);
+
+    if (!calendar) {
+      throw new Error(`${side} takvim bulunamadı`);
+    }
+
+    const year = startDateObj.getFullYear();
+    const month = startDateObj.getMonth(); // 0-11
+    const day = startDateObj.getDate();
+
+    // Seçilen gün bugün mü?
+    const today = new Date();
+    const isToday =
+      year === today.getFullYear() &&
+      month === today.getMonth() &&
+      day === today.getDate();
+
+    console.log(`Robusta Helper: Aynı gün modu - ${year}-${month+1}-${day} ${isToday ? '(BUGÜN - gün seçimi atlanıyor)' : 'seçiliyor...'}`);
+
+    if (isToday) {
+      // Takvim zaten bugünü gösteriyor; gün seçili değilse sadece günü iki kez tıkla,
+      // yıl/ay navigasyonu gerekmez.
+      await waitFor(() => findDayCell(calendar, day), 2000).catch(() => {});
+      const dayCell = findDayCell(calendar, day);
+      if (dayCell) {
+        dayCell.click();
+        await new Promise(resolve => setTimeout(resolve, 200));
+        console.log(`Robusta Helper: Bugün - ${day}. gün ilk kez tıklandı (start)`);
+
+        const dayCellAgain = findDayCell(calendar, day);
+        if (dayCellAgain) {
+          dayCellAgain.click();
+          await new Promise(resolve => setTimeout(resolve, 200));
+          console.log(`Robusta Helper: Bugün - ${day}. gün ikinci kez tıklandı (end)`);
+        }
+      } else {
+        console.warn(`Robusta Helper: Bugünün günü (${day}) takvimde bulunamadı`);
+      }
+    } else {
+      // Bugün değil ama aynı gün: yıl/ay navigasyonu yap, ardından iki kez tıkla
+      // 1. Yıl seçimi
+      const yearSelect = calendar.querySelector('select.yearselect');
+      if (yearSelect) {
+        yearSelect.value = year.toString();
+        yearSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+
+      // 2. Ay seçimi
+      const monthSelect = calendar.querySelector('select.monthselect');
+      if (monthSelect) {
+        monthSelect.value = month.toString();
+        monthSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+
+      // 3. Günü iki kez tıkla: birincisi start, ikincisi end
+      await waitFor(() => findDayCell(calendar, day), 2000).catch(() => {});
+      const dayCell = findDayCell(calendar, day);
+      if (dayCell) {
+        dayCell.click();
+        await new Promise(resolve => setTimeout(resolve, 200));
+        console.log(`Robusta Helper: Aynı gün - ${day}. gün ilk kez tıklandı (start)`);
+
+        const dayCellAgain = findDayCell(calendar, day);
+        if (dayCellAgain) {
+          dayCellAgain.click();
+          await new Promise(resolve => setTimeout(resolve, 200));
+          console.log(`Robusta Helper: Aynı gün - ${day}. gün ikinci kez tıklandı (end)`);
+        }
+      } else {
+        console.warn(`Robusta Helper: ${day}. gün bulunamadı`);
+      }
+    }
+
+    // 4. Başlangıç saatini sol takvime set et
+    const startHour = startDateObj.getHours();
+    const startMinute = startDateObj.getMinutes();
+    const startSecond = startDateObj.getSeconds();
+
+    const leftCalendar = document.querySelector('.drp-calendar.left');
+    if (leftCalendar) {
+      const hourSelect = leftCalendar.querySelector('select.hourselect');
+      if (hourSelect) {
+        hourSelect.value = startHour.toString();
+        hourSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      const minuteSelect = leftCalendar.querySelector('select.minuteselect');
+      if (minuteSelect) {
+        minuteSelect.value = startMinute.toString();
+        minuteSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      const secondSelect = leftCalendar.querySelector('select.secondselect');
+      if (secondSelect) {
+        secondSelect.value = startSecond.toString();
+        secondSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    // 5. Bitiş saatini sağ takvime set et
+    const endHour = endDateObj.getHours();
+    const endMinute = endDateObj.getMinutes();
+    const endSecond = endDateObj.getSeconds();
+
+    const rightCalendar = document.querySelector('.drp-calendar.right');
+    if (rightCalendar) {
+      const hourSelect = rightCalendar.querySelector('select.hourselect');
+      if (hourSelect) {
+        hourSelect.value = endHour.toString();
+        hourSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      const minuteSelect = rightCalendar.querySelector('select.minuteselect');
+      if (minuteSelect) {
+        minuteSelect.value = endMinute.toString();
+        minuteSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      const secondSelect = rightCalendar.querySelector('select.secondselect');
+      if (secondSelect) {
+        secondSelect.value = endSecond.toString();
+        secondSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    console.log(`Robusta Helper: Aynı gün seçimi tamamlandı - Start: ${startHour}:${startMinute}:${startSecond}, End: ${endHour}:${endMinute}:${endSecond}`);
+  }
+
   /**
    * Takvimde belirli bir günü içeren hücreyi bulur
    * @param {HTMLElement} calendar - Takvim elementi
