@@ -2,6 +2,10 @@
 
 Bu Chrome extension, Robusta Scheduler web uygulamasının kullanımını kolaylaştırır.
 
+## Kısa Demo
+
+![Robusta Scheduler Helper Demo](docs/assets/presentation.gif)
+
 ## Özellikler
 
 ### v1.0.0 - Tarih Filtre Aktarımı
@@ -34,9 +38,9 @@ Bu Chrome extension, Robusta Scheduler web uygulamasının kullanımını kolayl
 1. Robusta Scheduler'da **Scheduled Processes** sayfasına gidin
    - URL örneği: `https://host:port/scheduler/workflow/#/scheduled-processes`
 
-2. Tablodaki herhangi bir satırın üzerine gelin
+2. Instance tablosundaki herhangi bir instance satırının üzerine gelin
 
-3. Satırın sol tarafında mavi bir filtre butonu belirecektir
+3. Satırın sağ tarafında mavi bir filtre butonu belirecektir
 
 4. Butona tıklayın:
    - Yeni sekmede **Processes** sayfası açılacaktır
@@ -68,6 +72,9 @@ robusta-extension/
 ├── background.js           # Service worker
 ├── content-scripts/
 │   └── main.js            # Ana içerik script'i
+├── docs/
+│   └── assets/
+│       └── presentation.gif
 ├── styles/
 │   └── hover-button.css   # Hover button stilleri
 ├── icons/
